@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Longbox — Comic Collection Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper: #EFE6D0;
+    --paper-dark: #E4D8B8;
+    --ink: #1B1A17;
+    --ink-soft: #4A463C;
+    --red: #C6272B;
+    --blue: #1F4E79;
+    --yellow: #E8B93C;
+    --green: #2E6B4F;
+    --panel-border: 3px solid var(--ink);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  #app{
+    font-family: 'Archivo', sans-serif;
+    background: var(--paper);
+    background-image:
+      radial-gradient(rgba(27,26,23,0.06) 1px, transparent 1px);
+    background-size: 10px 10px;
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 28px 20px 80px;
+  }
+  .wrap{ max-width: 1180px; margin: 0 auto; }
+
+  /* Header */
+  .masthead{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    flex-wrap: wrap; gap: 16px;
+    border-bottom: var(--panel-border);
+    padding-bottom: 14px; margin-bottom: 22px;
+  }
+  .masthead h1{
+    font-family:'Archivo Black', sans-serif;
+    font-size: 52px;
+    letter-spacing: 1px;
+    margin: 0;
+    line-height: 0.9;
+    color: var(--ink);
+    text-shadow: 3px 3px 0 var(--red);
+  }
+  .masthead .tag{
+    font-family:'Space Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+  .issue-stamp{
+    font-family:'Space Mono', monospace;
+    font-size: 12px;
+    border: 2px solid var(--ink);
+    border-radius: 999px;
+    padding: 6px 14px;
+    transform: rotate(-3deg);
+    background: var(--paper);
+  }
+
+  /* Stats */
+  .stats{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-panel{
+    border: var(--panel-border);
+    background: #FBF7EA;
+    padding: 14px 16px;
+    position: relative;
+    box-shadow: 5px 5px 0 var(--ink);
+  }
+  .stat-panel .label{
+    font-family:'Space Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--ink-soft);
+  }
+  .stat-panel .value{
+    font-family:'Archivo Black', sans-serif;
+    font-size: 26px;
+    margin-top: 4px;
+  }
+  .stat-panel.gain .value{ color: var(--green); }
+  .stat-panel.loss .value{ color: var(--red); }
+
+  .burst{
+    grid-column: span 1;
+    background: var(--yellow);
+    border: var(--panel-border);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    padding: 10px;
+    clip-path: polygon(50% 0%, 61% 12%, 78% 4%, 82% 22%, 100% 25%, 92% 42%, 100% 58%, 85% 65%, 88% 82%, 70% 78%, 62% 96%, 50% 84%, 38% 96%, 30% 78%, 12% 82%, 15% 65%, 0% 58%, 8% 42%, 0% 25%, 18% 22%, 22% 4%, 39% 12%);
+    min-height: 118px;
+  }
+  .burst .value{ font-family:'Archivo Black', sans-serif; font-size:20px; }
+  .burst .label{ font-family:'Space Mono', monospace; font-size:10px; text-transform:uppercase; }
+
+  /* Toolbar */
+  .toolbar{
+    display:flex; gap: 10px; flex-wrap: wrap; align-items:center;
+    margin-bottom: 22px;
+    border: var(--panel-border);
+    background: #FBF7EA;
+    padding: 12px;
+  }
+  .toolbar input[type="text"], .toolbar select{
+    font-family:'Space Mono', monospace;
+    font-size: 13px;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    padding: 8px 10px;
+    color: var(--ink);
+    border-radius: 2px;
+  }
+  .toolbar input[type="text"]{ flex: 1; min-width: 160px; }
+  .toolbar .spacer{ flex: 1 1 auto; }
+  button{
+    font-family:'Archivo', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    padding: 9px 16px;
+    border-radius: 2px;
+    color: var(--ink);
+    transition: transform 0.06s ease;
+  }
+  button:hover{ background: var(--ink); color: var(--paper); }
+  button:active{ transform: scale(0.96); }
+  .btn-primary{
+    background: var(--red); color: #fff; border-color: var(--ink);
+  }
+  .btn-primary:hover{ background: #9e1e21; color:#fff; }
+  .btn-ghost{ background: transparent; }
+  .btn-danger-text{ border-color: var(--red); color: var(--red); background: transparent; padding: 6px 10px; font-size: 12px;}
+  .btn-danger-text:hover{ background: var(--red); color:#fff; }
+  .btn-small{ padding: 6px 10px; font-size: 12px; }
+
+  /* Grid of comics */
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 18px;
+  }
+  .card{
+    border: var(--panel-border);
+    background: #FBF7EA;
+    box-shadow: 5px 5px 0 var(--ink);
+    display:flex; flex-direction:column;
+    position: relative;
+    transition: transform 0.08s ease;
+  }
+  .card:hover{ transform: translate(-2px,-2px); }
+  .card .cover{
+    height: 130px;
+    background: linear-gradient(135deg, var(--blue), #163a58);
+    border-bottom: var(--panel-border);
+    display:flex; align-items:center; justify-content:center;
+    color: #fff;
+    font-family:'Archivo Black', sans-serif;
+    font-size: 15px;
+    text-align:center;
+    padding: 10px;
+    position: relative;
+    overflow:hidden;
+    background-image:
+      radial-gradient(rgba(255,255,255,0.10) 1.5px, transparent 1.5px);
+    background-size: 8px 8px;
+  }
+  .card .cover img{
+    width:100%; height:100%; object-fit: cover; position:absolute; inset:0;
+  }
+  .key-star{
+    position:absolute; top:6px; right:6px;
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    width: 28px; height:28px;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 14px;
+    z-index: 2;
+  }
+  .card .body{ padding: 12px 14px 14px; display:flex; flex-direction:column; gap:6px; flex:1; }
+  .card .title{ font-weight:700; font-size:15px; line-height:1.2; }
+  .card .meta{
+    font-family:'Space Mono', monospace; font-size: 11px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .card .badges{ display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;}
+  .badge{
+    font-family:'Space Mono', monospace; font-size: 10px; text-transform:uppercase;
+    border: 1.5px solid var(--ink); padding: 2px 7px; border-radius: 999px;
+  }
+  .price-row{
+    display:flex; justify-content:space-between; align-items:baseline;
+    margin-top: 8px; padding-top: 8px; border-top: 1.5px dashed var(--ink-soft);
+  }
+  .price-row .cur{ font-family:'Archivo Black', sans-serif; font-size: 18px; }
+  .price-row .delta{ font-family:'Space Mono', monospace; font-size:11px; }
+  .delta.up{ color: var(--green); }
+  .delta.down{ color: var(--red); }
+  .card-actions{
+    display:flex; gap:6px; padding: 0 14px 12px;
+  }
+  .card-actions button{ flex:1; }
+
+  /* Empty state */
+  .empty{
+    border: var(--panel-border);
+    background: #FBF7EA;
+    text-align:center;
+    padding: 60px 20px;
+  }
+  .empty h2{ font-family:'Archivo Black', sans-serif; font-size: 28px; margin: 0 0 8px; }
+  .empty p{ color: var(--ink-soft); margin: 0 0 18px; }
+
+  /* Modal */
+  .overlay{
+    position: fixed; inset:0; background: rgba(27,26,23,0.55);
+    display:flex; align-items:center; justify-content:center;
+    padding: 20px; z-index: 50;
+  }
+  .modal{
+    background: var(--paper);
+    border: var(--panel-border);
+    box-shadow: 8px 8px 0 var(--ink);
+    max-width: 560px; width:100%;
+    max-height: 88vh; overflow-y:auto;
+    padding: 22px;
+  }
+  .modal h2{
+    font-family:'Archivo Black', sans-serif;
+    margin: 0 0 16px;
+    border-bottom: var(--panel-border);
+    padding-bottom: 10px;
+  }
+  .field{ margin-bottom: 12px; }
+  .field label{
+    display:block; font-family:'Space Mono', monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; color: var(--ink-soft);
+  }
+  .field input, .field select, .field textarea{
+    width: 100%; font-family:'Archivo', sans-serif; font-size: 14px;
+    border: 2px solid var(--ink); background: #fff; padding: 9px 10px; border-radius: 2px;
+  }
+  .field textarea{ resize: vertical; min-height: 60px; }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .checkfield{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .checkfield input{ width: 18px; height:18px; }
+  .checkfield label{ margin:0; text-transform:none; letter-spacing:0; font-size:13px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top: 16px; }
+
+  .loading, .error-msg{
+    text-align:center; padding: 40px; font-family:'Space Mono', monospace; color: var(--ink-soft);
+  }
+  .error-msg{ color: var(--red); }
+
+  .confirm-box{
+    border: 2px solid var(--red); background: #FBF7EA; padding: 10px;
+    font-family:'Space Mono', monospace; font-size:12px; margin-top:8px;
+  }
+  .confirm-box .row{ display:flex; gap:8px; margin-top:8px; }
+
+  .import-banner{
+    border: var(--panel-border);
+    background: #FBF7EA;
+    padding: 12px 16px;
+    margin-bottom: 18px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .import-banner .msg{ font-family:'Space Mono', monospace; font-size: 12px; flex:1; min-width:200px; }
+  .import-banner .row{ display:flex; gap:8px; }
+  .toast{
+    font-family:'Space Mono', monospace; font-size:12px;
+    border: 2px solid var(--green); background: #FBF7EA; color: var(--green);
+    padding: 8px 14px; margin-bottom: 14px; display:inline-block;
+  }
+
+  @media (max-width: 720px){
+    .stats{ grid-template-columns: repeat(2, 1fr); }
+    .masthead h1{ font-size: 36px; }
+    .row2, .row3{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="wrap" id="root">
+    <div class="loading">Opening the longbox…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORAGE_KEY = 'collection';
+  var comics = [];
+  var loaded = false;
+  var loadError = null;
+
+  var state = {
+    search: '',
+    publisherFilter: 'all',
+    keyOnly: false,
+    sortBy: 'added_desc',
+    modalOpen: false,
+    editingId: null,
+    confirmDeleteId: null,
+    pendingImport: null,
+    toast: null
+  };
+
+  var CONDITIONS = ['Mint','Near Mint','Very Fine','Fine','Good','Fair','Poor','CGC Graded'];
+
+  function uid(){
+    return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  }
+
+  function money(n){
+    n = Number(n) || 0;
+    return '$' + n.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  async function loadCollection(){
+    try{
+      var result = await window.storage.get(STORAGE_KEY, false);
+      comics = result && result.value ? JSON.parse(result.value) : [];
+    }catch(err){
+      comics = [];
+    }
+    loaded = true;
+    render();
+  }
+
+  async function saveCollection(){
+    try{
+      var result = await window.storage.set(STORAGE_KEY, JSON.stringify(comics), false);
+      if(!result){ loadError = 'Could not save your collection. Try again.'; }
+      else { loadError = null; }
+    }catch(err){
+      loadError = 'Could not save your collection. Try again.';
+    }
+    render();
+  }
+
+  function showToast(msg){
+    state.toast = msg;
+    render();
+    setTimeout(function(){
+      state.toast = null;
+      render();
+    }, 3500);
+  }
+
+  var SHEET_COLUMNS = ['Title','Issue #','Publisher','Year','Condition','Purchase Price','Current Value','Key Issue','Notes'];
+
+  function comicsToSheetRows(list){
+    return list.map(function(c){
+      return {
+        'Title': c.title || '',
+        'Issue #': c.issueNumber || '',
+        'Publisher': c.publisher || '',
+        'Year': c.year || '',
+        'Condition': c.condition || '',
+        'Purchase Price': Number(c.purchasePrice) || 0,
+        'Current Value': Number(c.currentValue) || 0,
+        'Key Issue': c.keyIssue ? 'Yes' : 'No',
+        'Notes': c.notes || ''
+      };
+    });
+  }
+
+  function exportToExcel(){
+    if(typeof XLSX === 'undefined'){
+      showToast('Spreadsheet library did not load. Check your connection and try again.');
+      return;
+    }
+    var rows = comicsToSheetRows(comics);
+    var ws = XLSX.utils.json_to_sheet(rows, {header: SHEET_COLUMNS});
+    ws['!cols'] = [
+      {wch:26},{wch:9},{wch:16},{wch:7},{wch:14},{wch:14},{wch:14},{wch:10},{wch:30}
+    ];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Collection');
+    var stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, 'longbox-collection-' + stamp + '.xlsx');
+    showToast('Exported ' + rows.length + ' comics to spreadsheet.');
+  }
+
+  function normalizeHeader(h){
+    return String(h || '').toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  var HEADER_MAP = {
+    title: 'title',
+    issue: 'issueNumber', issuenumber: 'issueNumber', issueno: 'issueNumber',
+    publisher: 'publisher',
+    year: 'year',
+    condition: 'condition', grade: 'condition',
+    purchaseprice: 'purchasePrice', purchase: 'purchasePrice', cost: 'purchasePrice',
+    currentvalue: 'currentValue', value: 'currentValue', currentprice: 'currentValue',
+    keyissue: 'keyIssue', key: 'keyIssue',
+    notes: 'notes', note: 'notes'
+  };
+
+  function rowsToComics(rows){
+    return rows.map(function(row){
+      var obj = {id: uid(), addedAt: Date.now()};
+      Object.keys(row).forEach(function(rawKey){
+        var mapped = HEADER_MAP[normalizeHeader(rawKey)];
+        if(!mapped){ return; }
+        var val = row[rawKey];
+        if(mapped === 'year'){ val = val ? Number(val) : null; }
+        else if(mapped === 'purchasePrice' || mapped === 'currentValue'){ val = val ? Number(val) : 0; }
+        else if(mapped === 'keyIssue'){
+          val = /^(yes|y|true|1)$/i.test(String(val).trim());
+        } else {
+          val = String(val == null ? '' : val).trim();
+        }
+        obj[mapped] = val;
+      });
+      if(!obj.title){ obj.title = ''; }
+      if(obj.condition === undefined){ obj.condition = CONDITIONS[0]; }
+      if(obj.purchasePrice === undefined){ obj.purchasePrice = 0; }
+      if(obj.currentValue === undefined){ obj.currentValue = 0; }
+      if(obj.keyIssue === undefined){ obj.keyIssue = false; }
+      return obj;
+    }).filter(function(c){ return c.title; });
+  }
+
+  function triggerImport(){
+    var input = document.getElementById('importFileInput');
+    if(input){ input.value = ''; input.click(); }
+  }
+
+  function handleImportFile(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file){ return; }
+    if(typeof XLSX === 'undefined'){
+      showToast('Spreadsheet library did not load. Check your connection and try again.');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(evt){
+      try{
+        var data = new Uint8Array(evt.target.result);
+        var wb = XLSX.read(data, {type: 'array'});
+        var firstSheet = wb.SheetNames[0];
+        var rows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet], {defval: ''});
+        var parsed = rowsToComics(rows);
+        if(parsed.length === 0){
+          showToast('No comics found in that file. Check the column headers.');
+          return;
+        }
+        state.pendingImport = {items: parsed, fileName: file.name};
+        render();
+      }catch(err){
+        showToast('Could not read that file. Make sure it\'s a .xlsx or .csv export.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function applyImportReplace(){
+    if(!state.pendingImport){ return; }
+    comics = state.pendingImport.items;
+    state.pendingImport = null;
+    saveCollection();
+    showToast('Collection replaced from spreadsheet.');
+  }
+  function applyImportAppend(){
+    if(!state.pendingImport){ return; }
+    comics = comics.concat(state.pendingImport.items);
+    var count = state.pendingImport.items.length;
+    state.pendingImport = null;
+    saveCollection();
+    showToast('Added ' + count + ' comics from spreadsheet.');
+  }
+  function cancelImport(){
+    state.pendingImport = null;
+    render();
+  }
+
+  function openAddModal(){
+    state.editingId = null;
+    state.modalOpen = true;
+    render();
+  }
+  function openEditModal(id){
+    state.editingId = id;
+    state.modalOpen = true;
+    render();
+  }
+  function closeModal(){
+    state.modalOpen = false;
+    state.editingId = null;
+    render();
+  }
+
+  function handleFormSubmit(e){
+    e.preventDefault();
+    var f = e.target;
+    var data = {
+      title: f.title.value.trim(),
+      issueNumber: f.issueNumber.value.trim(),
+      publisher: f.publisher.value.trim(),
+      year: f.year.value ? Number(f.year.value) : null,
+      condition: f.condition.value,
+      purchasePrice: f.purchasePrice.value ? Number(f.purchasePrice.value) : 0,
+      currentValue: f.currentValue.value ? Number(f.currentValue.value) : 0,
+      keyIssue: f.keyIssue.checked,
+      notes: f.notes.value.trim()
+    };
+    if(!data.title){ return; }
+
+    if(state.editingId){
+      comics = comics.map(function(c){
+        if(c.id === state.editingId){
+          return Object.assign({}, c, data);
+        }
+        return c;
+      });
+    } else {
+      data.id = uid();
+      data.addedAt = Date.now();
+      comics.push(data);
+    }
+    state.modalOpen = false;
+    state.editingId = null;
+    saveCollection();
+  }
+
+  function requestDelete(id){
+    state.confirmDeleteId = id;
+    render();
+  }
+  function cancelDelete(){
+    state.confirmDeleteId = null;
+    render();
+  }
+  function confirmDelete(id){
+    comics = comics.filter(function(c){ return c.id !== id; });
+    state.confirmDeleteId = null;
+    saveCollection();
+  }
+
+  function getFiltered(){
+    var list = comics.slice();
+    var q = state.search.trim().toLowerCase();
+    if(q){
+      list = list.filter(function(c){
+        return (c.title||'').toLowerCase().indexOf(q) !== -1 ||
+               (c.publisher||'').toLowerCase().indexOf(q) !== -1 ||
+               (c.issueNumber||'').toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    if(state.publisherFilter !== 'all'){
+      list = list.filter(function(c){ return c.publisher === state.publisherFilter; });
+    }
+    if(state.keyOnly){
+      list = list.filter(function(c){ return c.keyIssue; });
+    }
+    var sortBy = state.sortBy;
+    list.sort(function(a,b){
+      switch(sortBy){
+        case 'value_desc': return (b.currentValue||0) - (a.currentValue||0);
+        case 'value_asc': return (a.currentValue||0) - (b.currentValue||0);
+        case 'title_asc': return (a.title||'').localeCompare(b.title||'');
+        case 'year_desc': return (b.year||0) - (a.year||0);
+        case 'year_asc': return (a.year||0) - (b.year||0);
+        case 'gain_desc':
+          return ((b.currentValue||0)-(b.purchasePrice||0)) - ((a.currentValue||0)-(a.purchasePrice||0));
+        default: return (b.addedAt||0) - (a.addedAt||0);
+      }
+    });
+    return list;
+  }
+
+  function getPublishers(){
+    var set = {};
+    comics.forEach(function(c){ if(c.publisher) set[c.publisher] = true; });
+    return Object.keys(set).sort();
+  }
+
+  function computeStats(){
+    var count = comics.length;
+    var invested = comics.reduce(function(s,c){ return s + (Number(c.purchasePrice)||0); }, 0);
+    var value = comics.reduce(function(s,c){ return s + (Number(c.currentValue)||0); }, 0);
+    var gain = value - invested;
+    var pct = invested > 0 ? (gain / invested * 100) : 0;
+    return {count: count, invested: invested, value: value, gain: gain, pct: pct};
+  }
+
+  function render(){
+    var root = document.getElementById('root');
+    if(!loaded){
+      root.innerHTML = '<div class="loading">Opening the longbox…</div>';
+      return;
+    }
+
+    var stats = computeStats();
+    var publishers = getPublishers();
+    var filtered = getFiltered();
+
+    var html = '';
+
+    // Masthead
+    html += '<div class="masthead">';
+    html += '  <div><h1>LONGBOX</h1><div class="tag">Comic collection &amp; value tracker</div></div>';
+    html += '  <div class="issue-stamp">ISSUE #' + String(stats.count).padStart(3,'0') + '</div>';
+    html += '</div>';
+
+    if(loadError){
+      html += '<div class="error-msg">' + escapeHtml(loadError) + '</div>';
+    }
+
+    // Stats
+    var gainClass = stats.gain >= 0 ? 'gain' : 'loss';
+    var gainSign = stats.gain >= 0 ? '+' : '';
+    html += '<div class="stats">';
+    html += '  <div class="stat-panel"><div class="label">Issues owned</div><div class="value">' + stats.count + '</div></div>';
+    html += '  <div class="stat-panel"><div class="label">Total invested</div><div class="value">' + money(stats.invested) + '</div></div>';
+    html += '  <div class="stat-panel"><div class="label">Current value</div><div class="value">' + money(stats.value) + '</div></div>';
+    html += '  <div class="burst"><div class="value">' + gainSign + money(stats.gain).replace('$','$') + '</div><div class="label">' + (stats.gain>=0?'Gain':'Loss') + ' (' + gainSign + stats.pct.toFixed(1) + '%)</div></div>';
+    html += '</div>';
+
+    // Toolbar
+    html += '<div class="toolbar">';
+    html += '  <input type="text" id="searchInput" placeholder="Search title, issue, publisher…" value="' + escapeHtml(state.search) + '">';
+    html += '  <select id="publisherFilter">';
+    html += '    <option value="all"' + (state.publisherFilter==='all'?' selected':'') + '>All publishers</option>';
+    publishers.forEach(function(p){
+      html += '<option value="' + escapeHtml(p) + '"' + (state.publisherFilter===p?' selected':'') + '>' + escapeHtml(p) + '</option>';
+    });
+    html += '  </select>';
+    html += '  <select id="sortBy">';
+    var sortOptions = [
+      ['added_desc','Recently added'],
+      ['value_desc','Value: high to low'],
+      ['value_asc','Value: low to high'],
+      ['gain_desc','Biggest gainers'],
+      ['title_asc','Title A-Z'],
+      ['year_desc','Year: newest'],
+      ['year_asc','Year: oldest']
+    ];
+    sortOptions.forEach(function(o){
+      html += '<option value="' + o[0] + '"' + (state.sortBy===o[0]?' selected':'') + '>' + o[1] + '</option>';
+    });
+    html += '  </select>';
+    html += '  <label style="display:flex;align-items:center;gap:6px;font-family:\'Space Mono\',monospace;font-size:12px;">';
+    html += '    <input type="checkbox" id="keyOnlyToggle"' + (state.keyOnly?' checked':'') + ' style="width:16px;height:16px;"> Key issues only';
+    html += '  </label>';
+    html += '  <div class="spacer"></div>';
+    html += '  <button class="btn-ghost" id="exportBtn">Export to Excel</button>';
+    html += '  <button class="btn-ghost" id="importBtn">Import spreadsheet</button>';
+    html += '  <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" style="display:none;">';
+    html += '  <button class="btn-primary" id="addBtn">+ Add Comic</button>';
+    html += '</div>';
+
+    if(state.toast){
+      html += '<div class="toast">' + escapeHtml(state.toast) + '</div>';
+    }
+
+    if(state.pendingImport){
+      html += '<div class="import-banner">';
+      html += '  <div class="msg">Found ' + state.pendingImport.items.length + ' comics in "' + escapeHtml(state.pendingImport.fileName) + '". Replace your whole collection, or add these on top of it?</div>';
+      html += '  <div class="row">';
+      html += '    <button class="btn-small" id="importCancelBtn">Cancel</button>';
+      html += '    <button class="btn-small" id="importAppendBtn">Add to collection</button>';
+      html += '    <button class="btn-small btn-danger-text" id="importReplaceBtn">Replace collection</button>';
+      html += '  </div>';
+      html += '</div>';
+    }
+
+    // Grid or empty
+    if(comics.length === 0){
+      html += '<div class="empty">';
+      html += '  <h2>Your longbox is empty</h2>';
+      html += '  <p>Start cataloging your collection to track what it\'s worth.</p>';
+      html += '  <button class="btn-primary" id="emptyAddBtn">+ Add your first comic</button>';
+      html += '</div>';
+    } else if(filtered.length === 0){
+      html += '<div class="empty">';
+      html += '  <h2>No matches</h2>';
+      html += '  <p>Nothing in your longbox matches those filters.</p>';
+      html += '</div>';
+    } else {
+      html += '<div class="grid">';
+      filtered.forEach(function(c){
+        var gain = (Number(c.currentValue)||0) - (Number(c.purchasePrice)||0);
+        var gainClass2 = gain >= 0 ? 'up' : 'down';
+        var gainSign2 = gain >= 0 ? '+' : '';
+        html += '<div class="card">';
+        if(c.keyIssue){ html += '<div class="key-star" title="Key issue">&#9733;</div>'; }
+        html += '  <div class="cover">' + escapeHtml(c.title) + (c.issueNumber ? ' #' + escapeHtml(c.issueNumber) : '') + '</div>';
+        html += '  <div class="body">';
+        html += '    <div class="title">' + escapeHtml(c.title) + (c.issueNumber ? ' #' + escapeHtml(c.issueNumber) : '') + '</div>';
+        html += '    <div class="meta">' + escapeHtml(c.publisher||'Unknown publisher') + (c.year ? ' &middot; ' + c.year : '') + '</div>';
+        html += '    <div class="badges">';
+        if(c.condition){ html += '<span class="badge">' + escapeHtml(c.condition) + '</span>'; }
+        html += '    </div>';
+        html += '    <div class="price-row"><span class="cur">' + money(c.currentValue) + '</span><span class="delta ' + gainClass2 + '">' + gainSign2 + money(gain) + '</span></div>';
+        html += '  </div>';
+        if(state.confirmDeleteId === c.id){
+          html += '  <div class="confirm-box" style="margin:0 14px 12px;">Remove "' + escapeHtml(c.title) + '" from your longbox?';
+          html += '    <div class="row"><button class="btn-small" data-action="cancel-delete" style="flex:1;">Cancel</button><button class="btn-small btn-danger-text" data-action="confirm-delete" data-id="' + c.id + '" style="flex:1;">Delete</button></div>';
+          html += '  </div>';
+        } else {
+          html += '  <div class="card-actions">';
+          html += '    <button class="btn-small" data-action="edit" data-id="' + c.id + '">Edit</button>';
+          html += '    <button class="btn-small btn-danger-text" data-action="delete" data-id="' + c.id + '">Remove</button>';
+          html += '  </div>';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Modal
+    if(state.modalOpen){
+      var editing = state.editingId ? comics.find(function(c){ return c.id === state.editingId; }) : null;
+      var d = editing || {title:'',issueNumber:'',publisher:'',year:'',condition:CONDITIONS[0],purchasePrice:'',currentValue:'',keyIssue:false,notes:''};
+      html += '<div class="overlay" id="overlay">';
+      html += '  <div class="modal">';
+      html += '    <h2>' + (editing ? 'Edit comic' : 'Add a comic') + '</h2>';
+      html += '    <form id="comicForm">';
+      html += '      <div class="field"><label>Title</label><input type="text" name="title" required value="' + escapeHtml(d.title) + '" placeholder="Amazing Spider-Man"></div>';
+      html += '      <div class="row3">';
+      html += '        <div class="field"><label>Issue #</label><input type="text" name="issueNumber" value="' + escapeHtml(d.issueNumber) + '" placeholder="300"></div>';
+      html += '        <div class="field"><label>Publisher</label><input type="text" name="publisher" value="' + escapeHtml(d.publisher) + '" placeholder="Marvel"></div>';
+      html += '        <div class="field"><label>Year</label><input type="number" name="year" value="' + escapeHtml(d.year) + '" placeholder="1988"></div>';
+      html += '      </div>';
+      html += '      <div class="row2">';
+      html += '        <div class="field"><label>Condition / grade</label><select name="condition">';
+      CONDITIONS.forEach(function(cond){
+        html += '<option value="' + cond + '"' + (d.condition===cond?' selected':'') + '>' + cond + '</option>';
+      });
+      html += '        </select></div>';
+      html += '        <div class="field" style="display:flex;align-items:flex-end;">';
+      html += '          <div class="checkfield" style="margin-bottom:9px;"><input type="checkbox" name="keyIssue" id="keyIssueCheck"' + (d.keyIssue?' checked':'') + '><label for="keyIssueCheck">Key issue</label></div>';
+      html += '        </div>';
+      html += '      </div>';
+      html += '      <div class="row2">';
+      html += '        <div class="field"><label>Purchase price ($)</label><input type="number" step="0.01" name="purchasePrice" value="' + escapeHtml(d.purchasePrice) + '" placeholder="0.00"></div>';
+      html += '        <div class="field"><label>Current value ($)</label><input type="number" step="0.01" name="currentValue" value="' + escapeHtml(d.currentValue) + '" placeholder="0.00"></div>';
+      html += '      </div>';
+      html += '      <div class="field"><label>Notes</label><textarea name="notes" placeholder="First appearance, condition notes, where you bought it…">' + escapeHtml(d.notes) + '</textarea></div>';
+      html += '      <div class="modal-actions">';
+      html += '        <button type="button" class="btn-ghost" id="cancelModalBtn">Cancel</button>';
+      html += '        <button type="submit" class="btn-primary">' + (editing ? 'Save changes' : 'Add to longbox') + '</button>';
+      html += '      </div>';
+      html += '    </form>';
+      html += '  </div>';
+      html += '</div>';
+    }
+
+    root.innerHTML = html;
+    bindEvents();
+  }
+
+  function bindEvents(){
+    var addBtn = document.getElementById('addBtn');
+    if(addBtn){ addBtn.addEventListener('click', openAddModal); }
+    var emptyAddBtn = document.getElementById('emptyAddBtn');
+    if(emptyAddBtn){ emptyAddBtn.addEventListener('click', openAddModal); }
+
+    var searchInput = document.getElementById('searchInput');
+    if(searchInput){
+      searchInput.addEventListener('input', function(e){
+        state.search = e.target.value;
+        var caret = e.target.selectionStart;
+        render();
+        var el = document.getElementById('searchInput');
+        if(el){ el.focus(); el.setSelectionRange(caret, caret); }
+      });
+    }
+    var publisherFilter = document.getElementById('publisherFilter');
+    if(publisherFilter){
+      publisherFilter.addEventListener('change', function(e){
+        state.publisherFilter = e.target.value;
+        render();
+      });
+    }
+    var sortBy = document.getElementById('sortBy');
+    if(sortBy){
+      sortBy.addEventListener('change', function(e){
+        state.sortBy = e.target.value;
+        render();
+      });
+    }
+    var keyOnlyToggle = document.getElementById('keyOnlyToggle');
+    if(keyOnlyToggle){
+      keyOnlyToggle.addEventListener('change', function(e){
+        state.keyOnly = e.target.checked;
+        render();
+      });
+    }
+
+    document.querySelectorAll('[data-action="edit"]').forEach(function(btn){
+      btn.addEventListener('click', function(){ openEditModal(btn.getAttribute('data-id')); });
+    });
+    document.querySelectorAll('[data-action="delete"]').forEach(function(btn){
+      btn.addEventListener('click', function(){ requestDelete(btn.getAttribute('data-id')); });
+    });
+    document.querySelectorAll('[data-action="cancel-delete"]').forEach(function(btn){
+      btn.addEventListener('click', cancelDelete);
+    });
+    document.querySelectorAll('[data-action="confirm-delete"]').forEach(function(btn){
+      btn.addEventListener('click', function(){ confirmDelete(btn.getAttribute('data-id')); });
+    });
+
+    var exportBtn = document.getElementById('exportBtn');
+    if(exportBtn){ exportBtn.addEventListener('click', exportToExcel); }
+    var importBtn = document.getElementById('importBtn');
+    if(importBtn){ importBtn.addEventListener('click', triggerImport); }
+    var importFileInput = document.getElementById('importFileInput');
+    if(importFileInput){ importFileInput.addEventListener('change', handleImportFile); }
+    var importCancelBtn = document.getElementById('importCancelBtn');
+    if(importCancelBtn){ importCancelBtn.addEventListener('click', cancelImport); }
+    var importAppendBtn = document.getElementById('importAppendBtn');
+    if(importAppendBtn){ importAppendBtn.addEventListener('click', applyImportAppend); }
+    var importReplaceBtn = document.getElementById('importReplaceBtn');
+    if(importReplaceBtn){ importReplaceBtn.addEventListener('click', applyImportReplace); }
+
+    var overlay = document.getElementById('overlay');
+    if(overlay){
+      overlay.addEventListener('click', function(e){
+        if(e.target === overlay){ closeModal(); }
+      });
+    }
+    var cancelModalBtn = document.getElementById('cancelModalBtn');
+    if(cancelModalBtn){ cancelModalBtn.addEventListener('click', closeModal); }
+    var form = document.getElementById('comicForm');
+    if(form){ form.addEventListener('submit', handleFormSubmit); }
+  }
+
+  loadCollection();
+})();
+</script>
+</body>
+</html>
